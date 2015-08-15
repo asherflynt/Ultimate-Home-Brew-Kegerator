@@ -169,12 +169,12 @@ void displayBeerLeft()
 {
 	lcd.clear();
 	lcd.print("Keg1=");
-	lcd.print(beerLeft1, 2);
-	lcd.print("pints");
+	lcd.print(beerLeft1, 1);
+	lcd.print(" Pints");
 	lcd.setCursor(0, 1); //Start at character 0 on line 1
 	lcd.print("Keg2=");
-	lcd.print(beerLeft2, 2);
-	lcd.print("pints");
+	lcd.print(beerLeft2, 1);
+	lcd.print(" Pints");
 }
 
 void loop(void)
@@ -268,22 +268,12 @@ void loop(void)
 
 
 	//Now read the Scales and set display to beerleft if it changes
-	keg1 = scale1.get_units(10) - keg1Tare;
-	keg2 = scale2.get_units(10) - keg2Tare;
+	keg1 = scale1.get_units(2) - keg1Tare;
+	keg2 = scale2.get_units(2) - keg2Tare;
 
 	//convert pounds to 16oz pints
 	beerLeft1 = keg1 / 1.04;
 	beerLeft2 = keg2 / 1.04;
-	//set screen to no beerLeft if the reading is different which means someone is pouring a beer
-	if(keg1 < keg1Last * .99 || keg2 < keg2Last * .99)
-	{
-		screenSwitch = 3;
-		lastScreen = 5;
-		onCount = 200;
-		keg1Last = keg1;
-		keg2Last = keg2;
-	}
-
 
 
 
@@ -298,9 +288,8 @@ void loop(void)
 		if (resetCount == 40)
 		{
 			tareCount = 200;
-
 		}
-		if(screenSwitch < 3 && lightFirst == 1)
+		if(screenSwitch < 4 && lightFirst == 1)
 		{
 			screenSwitch++;
 		}
@@ -342,115 +331,94 @@ void loop(void)
 		lcd.clear();
 		lcd.print("Hold to Reset");
 	}
-	else
+	if(resetCount >= 20 && resetCount < 40)
 	{
-		if(resetCount >= 20 && resetCount < 40)
+		lcd.clear();
+		lcd.print("Reset Complete");
+		lcd.setCursor(0, 1); //Start at character 0 on line 1
+		lcd.print("Hold to Tare");
+	}
+	if(tareCount > 0)
+	{
+		while(tareCount > 1)
+		{
+			detachInterrupt(0);
+			if (digitalRead(encoderPinA) == digitalRead(encoderPinB))
+			{
+				tareSelect = 1;
+			}
+			else
+			{
+				tareSelect = 0;
+			}
+
+			lcd.clear();
+			lcd.print("Select Keg");
+			lcd.setCursor(0, 1); //Start at character 0 on line 1
+			if(tareSelect == 1)
+			{
+				lcd.print("Keg1");
+			}
+			else
+			{
+				lcd.print("Keg2");
+			}
+			if (digitalRead(displaySwitch) == HIGH)
+			{
+				tareHold++;
+			}
+			else
+			{
+				tareHold = 0;
+			}
+			if (tareSelect == 1 && tareHold > 20)
+			{
+				scale1.tare();
+				lcd.clear();
+				lcd.print("Keg 1 Torn!");
+				delay(5000);
+			}
+			tareCount --;
+			if (tareSelect == 0 && tareHold > 20)
+			{
+				scale2.tare();
+				lcd.clear();
+				lcd.print("Keg 2 Torn!");
+				delay(5000);
+			}
+			delay(200);
+		}
+		attachInterrupt(0, doEncoder, CHANGE);  // encoder pin on interrupt 0 - pin 2
+	}
+
+	//Now select the screen to be displayed if nothing above is using the screen
+	if(lastScreen != screenSwitch && resetCount < 2)
+	{
+		if (tempC == -127.00) // Measurement failed or no device found
 		{
 			lcd.clear();
-			lcd.print("Reset Complete");
-			lcd.setCursor(0, 1); //Start at character 0 on line 1
-			lcd.print("Hold to Tare");
-		}
-		if(tareCount > 0)
-		{
-			while(tareCount > 1)
-			{
-				detachInterrupt(0);
-				if (digitalRead(encoderPinA) == digitalRead(encoderPinB))
-				{
-					tareSelect = 1;
-				}
-				else
-				{
-					tareSelect = 0;
-				}
-
-				lcd.clear();
-				lcd.print("Select Keg");
-				lcd.setCursor(0, 1); //Start at character 0 on line 1
-				if(tareSelect == 1)
-				{
-					lcd.print("Keg1");
-				}
-				else
-				{
-					lcd.print("Keg2");
-				}
-				if (digitalRead(displaySwitch) == HIGH)
-				{
-					tareHold++;
-				}
-				else
-				{
-					tareHold = 0;
-				}
-				if (tareSelect == 1 && tareHold > 20)
-				{
-					scale1.tare();
-					lcd.clear();
-					lcd.print("Keg 1 Torn!");
-				}
-				tareCount --;
-				if (tareSelect == 0 && tareHold > 20)
-				{
-					scale2.tare();
-					lcd.clear();
-					lcd.print("Keg 2 Torn!");
-				}
-				delay(200);
-			}
-			attachInterrupt(0, doEncoder, CHANGE);  // encoder pin on interrupt 0 - pin 2
+			lcd.print("Temperature Error");
 		}
 		else
 		{
-			//Now select the screen to be displayed if nothing above is using the screen
-			if(lastScreen != screenSwitch)
+			if(screenSwitch == 0)
 			{
-				if (tempC == -127.00) // Measurement failed or no device found
-				{
-					lcd.clear();
-					lcd.print("Temperature Error");
-				}
-				else
-				{
-					if(screenSwitch == 0)
-					{
-						displayTemperature();
-					}
-					if(screenSwitch == 1)
-					{
-						displayAverage();
-					}
-					if(screenSwitch == 2)
-					{
-						displayMinMaxTemperature();
-					}
-					if(screenSwitch == 3)
-					{
-						displayBeerLeft();
-					}
-				}
-				lastScreen = screenSwitch;
+				displayTemperature();
+			}
+			if(screenSwitch == 1)
+			{
+				displayAverage();
+			}
+			if(screenSwitch == 2)
+			{
+				displayMinMaxTemperature();
+			}
+			if(screenSwitch == 3)
+			{
+				displayBeerLeft();
 			}
 		}
+		lastScreen = screenSwitch;
 	}
-	delay(200);// debounce switch
-
-
-
-	//added serial print for monitoring if the LCD is not connected
-	//any other print functions can be added here or erased if not needed
-	Serial.print("keg1: ");
-	Serial.print(beerLeft1, 1);
-	Serial.print("\n\r");
-	Serial.print("keg2: ");
-	Serial.print(beerLeft2, 1);
-	Serial.print("\n\r");
-	Serial.print("Actual Temp: ");
-	Serial.print(tempF, 2);
-	Serial.print("\n\r");
-	Serial.print("Average Temp: ");
-	Serial.print(myStats.average(), 2);
-	Serial.print("\n\r");
-
+	
 }
